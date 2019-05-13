@@ -1,4 +1,4 @@
 package com.company;
 
-public class JackCompilationEngine {
+class JackCompilationEngine {
 }
