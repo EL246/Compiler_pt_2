@@ -4,13 +4,13 @@ import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Scanner;
-import java.util.StringTokenizer;
+import java.util.*;
 
 class JackTokenizer {
     private final File jackFile;
+
+//    TODO: is it more efficient to not keep a list?
+    private List<JackToken> tokens;
 
     private static List<String> symbols = Arrays.asList("{", "}", "(", ")", "[", "]", ".",
             ",", ";", "+", "-", "*", "/", "&", "|", "<", ">", "=", "~");
@@ -21,6 +21,7 @@ class JackTokenizer {
 
     JackTokenizer(File jackFile) throws AnalyzerException {
         this.jackFile = jackFile;
+        this.tokens = new LinkedList<>();
         init();
     }
 
@@ -32,7 +33,10 @@ class JackTokenizer {
             throw new AnalyzerException("Please specify a valid jack file");
         }
         while (scanner.hasNextLine()) {
-            StringTokenizer stringTokenizer = new StringTokenizer(scanner.nextLine(),"{}()[].,;+-*/&|<>=~", true);
+            String s = scanner.nextLine().trim();
+            s = s.replaceAll("//(.*)","");
+            System.out.println("token: " + s + " length: " + s.length());
+//            StringTokenizer stringTokenizer = new StringTokenizer(scanner.nextLine(),"{}()[].,;+-*/&|<>=~", true);
         }
 
     }
