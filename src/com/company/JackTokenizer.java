@@ -1,5 +1,6 @@
 package com.company;
 
+import com.company.comment.BlockComment;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.io.File;
@@ -10,8 +11,18 @@ class JackTokenizer {
     private final File jackFile;
 
     private boolean isOpenLineComment;
-    private boolean isOpenBlockComment;
+    private final static String OPEN_LINE_COMMENT = "//";
+
+    private String nextCharacter = "";
+    private boolean skipNextToken;
+
+
+    private final BlockComment blockComment;
+
     private boolean isOpenQuote;
+    private final static String QUOTE = "\"";
+    //    TODO: make currentQuote StringBuilder instead?
+    private String currentQuote = "";
 
     //    TODO: is it more efficient to not keep a list?
     private List<JackToken> tokens;
@@ -30,7 +41,8 @@ class JackTokenizer {
         this.jackFile = jackFile;
         this.tokens = new LinkedList<>();
 
-        this.isOpenBlockComment = false;
+        this.blockComment = new BlockComment();
+
         this.isOpenLineComment = false;
         this.isOpenQuote = false;
 
@@ -49,17 +61,88 @@ class JackTokenizer {
 
         while (scanner.hasNextLine()) {
             String s = scanner.nextLine().trim();
-            String[] lineTokens = s.split(String.format(WITH_DELIMITER,"[\";.,\\[\\](){}+\\-*/&<>=~|]"));
+            String[] lineTokens = s.split(String.format(WITH_DELIMITER, "[\";.,\\[\\](){}+\\-*/&<>=~|]"));
             System.out.println("line: " + Arrays.toString(lineTokens));
             processLine(lineTokens);
         }
 
+        isOpenLineComment = false;
     }
 
     private void processLine(String[] lineTokens) {
-        for (String token : lineTokens) {
-            token.trim();
+        int i = 0;
+        while (i < lineTokens.length) {
+            String token = lineTokens[i];
+            updateNextCharacter(lineTokens, i);
+            token = checkForOpenCommentsOrQuotes(token);
+            System.out.println("token: " + token);
+            if (skipNextToken && i < lineTokens.length - 1) {
+                i = i + 2;
+                skipNextToken = false;
+            } else {
+                i = i + 1;
+            }
         }
+        isOpenLineComment = false;
+    }
+
+    private void updateNextCharacter(String[] lineTokens, int i) {
+        if (i < lineTokens.length - 1) {
+            nextCharacter = lineTokens[i + 1];
+        } else {
+            nextCharacter = "";
+        }
+    }
+
+    private String checkForOpenCommentsOrQuotes(String token) {
+        String result = "";
+        if (isOpenQuote) {
+            return handleOpenQuote(token);
+        }
+        if (blockComment.isOpen()) {
+            if (blockComment.checkIfCanCloseComment(nextCharacter, token)) {
+                skipNextToken = true;
+            }
+            return result;
+        }
+        if (isOpenLineComment) {
+            return result;
+        }
+        return checkIfTokenOpensCommentOrBlock(token);
+    }
+
+    //    TODO: need to refactor this
+    private String checkIfTokenOpensCommentOrBlock(String token) {
+        String result = "";
+        if (token.trim().equals(QUOTE)) {
+            isOpenQuote = true;
+            currentQuote = "";
+            return result;
+        }
+
+        if (blockComment.checkIfOpenComment(nextCharacter, token.trim())) {
+            return result;
+        }
+
+        String lineCommentTest = token + nextCharacter;
+        if (lineCommentTest.equals(OPEN_LINE_COMMENT)) {
+            isOpenLineComment = true;
+            return result;
+        }
+// removes white spaces:
+        return token.trim();
+    }
+
+    private String handleOpenQuote(String token) {
+        String result;
+        if (token.trim().equals(QUOTE)) {
+            isOpenQuote = false;
+            result = currentQuote;
+            currentQuote = "";
+            return result;
+        }
+        currentQuote = currentQuote + token;
+        return "";
     }
 
     boolean hasMoreTokens() {
