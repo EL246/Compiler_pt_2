@@ -1,10 +1,10 @@
 package com.company;
 
-import java.io.IOException;
+import com.company.tokens.TokenizerException;
 
 class Main {
 
-    public static void main(String[] args) throws AnalyzerException, IOException {
+    public static void main(String[] args) throws TokenizerException, AnalyzerException {
         String filepath;
         try {
             filepath = args[0];

@@ -1,8 +1,6 @@
-package com.company;
+package com.company.tokens;
 
 import com.company.comment.BlockComment;
-import com.company.tokens.Token;
-import com.company.tokens.TokenType;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -10,7 +8,7 @@ import java.util.*;
 
 import static javax.lang.model.SourceVersion.isIdentifier;
 
-class JackTokenizer {
+public class JackTokenizer {
     private final File jackFile;
 
     private boolean isOpenLineComment;
@@ -43,7 +41,7 @@ class JackTokenizer {
     private static final String WITH_DELIMITER = "((?<=%1$s)|(?=%1$s))";
 
 
-    JackTokenizer(File jackFile) throws AnalyzerException {
+    public JackTokenizer(File jackFile) throws TokenizerException {
         this.jackFile = jackFile;
         this.tokens = new LinkedList<>();
 
@@ -92,14 +90,14 @@ class JackTokenizer {
         return pointer.getValue();
     }
 
-    private void init() throws AnalyzerException {
+    private void init() throws TokenizerException {
 
 
         Scanner scanner;
         try {
             scanner = new Scanner(jackFile);
         } catch (FileNotFoundException e) {
-            throw new AnalyzerException("Please specify a valid jack file");
+            throw new TokenizerException("Please specify a valid jack file");
         }
 
         while (scanner.hasNextLine()) {
@@ -112,7 +110,7 @@ class JackTokenizer {
         isOpenLineComment = false;
     }
 
-    private void processLine(String[] lineTokens) throws AnalyzerException {
+    private void processLine(String[] lineTokens) throws TokenizerException {
         int i = 0;
         while (i < lineTokens.length) {
             String token = lineTokens[i];
@@ -126,7 +124,7 @@ class JackTokenizer {
         isOpenLineComment = false;
     }
 
-    private void createToken(String token) throws AnalyzerException {
+    private void createToken(String token) throws TokenizerException {
         if (token.trim().isEmpty()) {
             return;
         }
@@ -134,7 +132,7 @@ class JackTokenizer {
         tokens.add(new Token(token,tokenType));
     }
 
-    private TokenType getTokenType(String token) throws AnalyzerException {
+    private TokenType getTokenType(String token) throws TokenizerException {
         if (isStringConstant(token)) {
             return TokenType.STRING_CONSTANT;
         }
@@ -150,7 +148,7 @@ class JackTokenizer {
         if (isIdentifier(token)) {
             return TokenType.IDENTIFIER;
         }
-        throw new AnalyzerException("Invalid Token Type");
+        throw new TokenizerException("Invalid Token Type");
     }
 
     private boolean isStringConstant(String token) {
