@@ -1,8 +1,10 @@
 package com.company;
 
+import java.io.IOException;
+
 class Main {
 
-    public static void main(String[] args) throws AnalyzerException {
+    public static void main(String[] args) throws AnalyzerException, IOException {
         String filepath;
         try {
             filepath = args[0];

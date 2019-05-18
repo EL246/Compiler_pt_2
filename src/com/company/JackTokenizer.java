@@ -1,11 +1,14 @@
 package com.company;
 
 import com.company.comment.BlockComment;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+import com.company.tokens.Token;
+import com.company.tokens.TokenType;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.*;
+
+import static javax.lang.model.SourceVersion.isIdentifier;
 
 class JackTokenizer {
     private final File jackFile;
@@ -19,13 +22,16 @@ class JackTokenizer {
 
     private final BlockComment blockComment;
 
+    //    TODO: use enum/object for this?
     private boolean isOpenQuote;
     private final static String QUOTE = "\"";
     //    TODO: make currentQuote StringBuilder instead?
     private String currentQuote = "";
+    private boolean quoteClosed = false;
 
     //    TODO: is it more efficient to not keep a list?
-    private List<JackToken> tokens;
+    private LinkedList<Token> tokens;
+    private Token pointer;
 
     private static final List<String> SYMBOLS = Arrays.asList("{", "}", "(", ")", "[", "]", ".",
             ",", ";", "+", "-", "*", "/", "&", "|", "<", ">", "=", "~");
@@ -49,6 +55,43 @@ class JackTokenizer {
         init();
     }
 
+    boolean hasMoreTokens() {
+        return !tokens.isEmpty();
+    }
+
+    void advance() {
+        pointer = tokens.pop();
+    }
+
+    TokenType tokenType() {
+        return pointer.getTokenType();
+    }
+
+//    TODO: should return enum
+    String keyWord() {
+        return pointer.getValue();
+    }
+
+    Character symbol() {
+        return pointer.getValue().charAt(0);
+    }
+
+    String identifier() {
+        return pointer.getValue();
+    }
+
+    Integer intVal() {
+        return Integer.valueOf(pointer.getValue());
+    }
+
+    String stringVal() {
+        return pointer.getValue();
+    }
+
+    String tokenValue() {
+        return pointer.getValue();
+    }
+
     private void init() throws AnalyzerException {
 
 
@@ -61,7 +104,7 @@ class JackTokenizer {
 
         while (scanner.hasNextLine()) {
             String s = scanner.nextLine().trim();
-            String[] lineTokens = s.split(String.format(WITH_DELIMITER, "[\";.,\\[\\](){}+\\-*/&<>=~|]"));
+            String[] lineTokens = s.split(String.format(WITH_DELIMITER, "[\";.,\\[\\](){}+\\-*/&<>=~|\\s+]"));
             System.out.println("line: " + Arrays.toString(lineTokens));
             processLine(lineTokens);
         }
@@ -69,21 +112,71 @@ class JackTokenizer {
         isOpenLineComment = false;
     }
 
-    private void processLine(String[] lineTokens) {
+    private void processLine(String[] lineTokens) throws AnalyzerException {
         int i = 0;
         while (i < lineTokens.length) {
             String token = lineTokens[i];
             updateNextCharacter(lineTokens, i);
             token = checkForOpenCommentsOrQuotes(token);
+            createToken(token);
             System.out.println("token: " + token);
-            if (skipNextToken && i < lineTokens.length - 1) {
-                i = i + 2;
-                skipNextToken = false;
-            } else {
-                i = i + 1;
-            }
+            i = handleSkipToken(lineTokens, i);
+            quoteClosed = false;
         }
         isOpenLineComment = false;
+    }
+
+    private void createToken(String token) throws AnalyzerException {
+        if (token.trim().isEmpty()) {
+            return;
+        }
+        TokenType tokenType = getTokenType(token);
+        tokens.add(new Token(token,tokenType));
+    }
+
+    private TokenType getTokenType(String token) throws AnalyzerException {
+        if (isStringConstant(token)) {
+            return TokenType.STRING_CONSTANT;
+        }
+        if (SYMBOLS.contains(token)) {
+            return TokenType.SYMBOL;
+        }
+        if (KEYWORDS.contains(token)) {
+            return TokenType.KEYWORD;
+        }
+        if (isIntegerConstant(token)) {
+            return TokenType.INTEGER_CONSTANT;
+        }
+        if (isIdentifier(token)) {
+            return TokenType.IDENTIFIER;
+        }
+        throw new AnalyzerException("Invalid Token Type");
+    }
+
+    private boolean isStringConstant(String token) {
+        return quoteClosed;
+    }
+
+    private boolean isIntegerConstant(String token) {
+        try {
+            int integerToken = Integer.parseInt(token);
+            if (integerToken >= 0 && integerToken <= 32767) {
+                return true;
+            }
+        } catch (NumberFormatException e) {
+            return false;
+        }
+        return false;
+    }
+
+    private int handleSkipToken(String[] lineTokens, int i) {
+        if (skipNextToken && i < lineTokens.length - 1) {
+            i = i + 2;
+            skipNextToken = false;
+        } else {
+            i = i + 1;
+        }
+        return i;
     }
 
     private void updateNextCharacter(String[] lineTokens, int i) {
@@ -139,41 +232,10 @@ class JackTokenizer {
             isOpenQuote = false;
             result = currentQuote;
             currentQuote = "";
+            quoteClosed = true;
             return result;
         }
         currentQuote = currentQuote + token;
         return "";
-    }
-
-    boolean hasMoreTokens() {
-        throw new NotImplementedException();
-    }
-
-    void advance() {
-        throw new NotImplementedException();
-    }
-
-    void tokenType() {
-        throw new NotImplementedException();
-    }
-
-    void keyWord() {
-        throw new NotImplementedException();
-    }
-
-    Character symbol() {
-        throw new NotImplementedException();
-    }
-
-    String identifier() {
-        throw new NotImplementedException();
-    }
-
-    Integer intVal() {
-        throw new NotImplementedException();
-    }
-
-    String stringVal() {
-        throw new NotImplementedException();
     }
 }
