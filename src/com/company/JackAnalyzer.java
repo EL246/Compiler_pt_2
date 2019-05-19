@@ -1,18 +1,18 @@
 package com.company;
 
+import com.company.parser.JackCompilationEngine;
 import com.company.tokens.JackTokenizer;
 import com.company.tokens.TokenizerException;
 
 import java.io.File;
+import java.io.IOException;
 
 class JackAnalyzer {
-    private final File jackFile;
-    private JackTokenizer jackTokenizer;
     private JackCompilationEngine compilationEngine;
 
     JackAnalyzer(String filepath) throws TokenizerException {
-        this.jackFile = new File(filepath);
-        this.jackTokenizer = new JackTokenizer(jackFile);
+        File jackFile = new File(filepath);
+        JackTokenizer jackTokenizer = new JackTokenizer(jackFile);
 
         String newFileName = jackFile.getName().replace(".jack",".xml");
         System.out.println("output file: " + newFileName);
@@ -20,8 +20,7 @@ class JackAnalyzer {
         this.compilationEngine = new JackCompilationEngine(jackTokenizer, new File(newFileName));
     }
 
-    void run() {
+    void run() throws IOException {
         compilationEngine.handle();
-        compilationEngine.output();
     }
 }
