@@ -31,12 +31,13 @@ public class JackTokenizer {
     private LinkedList<Token> tokens;
     private Token pointer;
 
-    private static final List<String> SYMBOLS = Arrays.asList("{", "}", "(", ")", "[", "]", ".",
-            ",", ";", "+", "-", "*", "/", "&", "|", "<", ">", "=", "~");
-
+//    TODO: use enum instead
     private static final List<String> KEYWORDS = Arrays.asList("class", "constructor", "function", "method",
             "field", "static", "var", "int", "char", "boolean", "void", "true", "false", "null", "this", "let",
             "do", "if", "else", "while", "return");
+
+    private static final List<String> SYMBOLS = Arrays.asList("{", "}", "(", ")", "[", "]", ".",
+            ",", ";", "+", "-", "*", "/", "&", "|", "<", ">", "=", "~");
 
     private static final String WITH_DELIMITER = "((?<=%1$s)|(?=%1$s))";
 
@@ -53,36 +54,36 @@ public class JackTokenizer {
         init();
     }
 
-    boolean hasMoreTokens() {
+    public boolean hasMoreTokens() {
         return !tokens.isEmpty();
     }
 
-    void advance() {
+    public void advance() {
         pointer = tokens.pop();
     }
 
-    TokenType tokenType() {
+    public TokenType tokenType() {
         return pointer.getTokenType();
     }
 
 //    TODO: should return enum
-    String keyWord() {
+    public String keyWord() {
         return pointer.getValue();
     }
 
-    Character symbol() {
+    public Character symbol() {
         return pointer.getValue().charAt(0);
     }
 
-    String identifier() {
+    public String identifier() {
         return pointer.getValue();
     }
 
-    Integer intVal() {
+    public Integer intVal() {
         return Integer.valueOf(pointer.getValue());
     }
 
-    String stringVal() {
+    public String stringVal() {
         return pointer.getValue();
     }
 
