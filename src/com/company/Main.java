@@ -2,9 +2,11 @@ package com.company;
 
 import com.company.tokens.TokenizerException;
 
+import java.io.IOException;
+
 class Main {
 
-    public static void main(String[] args) throws TokenizerException, AnalyzerException {
+    public static void main(String[] args) throws TokenizerException, AnalyzerException, IOException {
         String filepath;
         try {
             filepath = args[0];
