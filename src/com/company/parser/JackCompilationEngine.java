@@ -78,23 +78,57 @@ public class JackCompilationEngine {
         eatReturnType();
         eatIdentifier();
         eatSymbol('(');
-        compileParameterList(); // need to implement
+        if (existsParameterList()) {
+            compileParameterList();
+        }
         eatSymbol(')');
         compileSubroutineBody(); // need to implement
 
         XMLWriter.endXMLCategory(ProgramStructure.SUBROUTINE_DEC.getName(), bufferedWriter);
     }
 
-    private void compileSubroutineBody() {
+    private void compileSubroutineBody() throws IOException {
+        XMLWriter.startXMLCategory(ProgramStructure.SUBROUTINE_BODY.getName(), bufferedWriter);
+        eatSymbol('{');
+        while (isVarDec()) {
+            compileVarDec();
+        }
+        compileStatements(); // implement
+        eatSymbol('}');
+        XMLWriter.endXMLCategory(ProgramStructure.SUBROUTINE_BODY.getName(), bufferedWriter);
     }
 
-    private void compileParameterList() {
+    private boolean isVarDec() {
+        return isKeyword(Keyword.VAR);
     }
 
-    void compileVarDec() {
+    private void compileParameterList() throws IOException {
+        XMLWriter.startXMLCategory(ProgramStructure.PARAMETER_LIST.getName(), bufferedWriter);
+        eatType();
+        eatIdentifier();
+        while (jackTokenizer.symbol().equals(',')) {
+            eatSymbol(',');
+            eatType();
+            eatIdentifier();
+        }
+        XMLWriter.endXMLCategory(ProgramStructure.PARAMETER_LIST.getName(), bufferedWriter);
     }
 
-    void compileStatements() {
+    private void compileVarDec() throws IOException {
+        XMLWriter.startXMLCategory(ProgramStructure.VAR_DEC.getName(), bufferedWriter);
+        eatKeyword(Keyword.VAR);
+        eatType();
+        eatIdentifier();
+        while (jackTokenizer.symbol().equals(',')) {
+            eatSymbol(',');
+            eatIdentifier();
+        }
+        eatSymbol(';');
+        XMLWriter.endXMLCategory(ProgramStructure.VAR_DEC.getName(), bufferedWriter);
+    }
+
+    private void compileStatements() {
+
     }
 
     void compileDo() {
@@ -223,5 +257,9 @@ public class JackCompilationEngine {
     private void updateXMLandAdvanceToken(TokenType tokenType, String s) throws IOException {
         XMLWriter.writeXMLKeyword(tokenType.getName(), s, bufferedWriter);
         advanceTokenIfPossible();
+    }
+
+    private boolean existsParameterList() {
+        return isTypeKeyword();
     }
 }
