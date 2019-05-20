@@ -18,6 +18,9 @@ class JackAnalyzer {
         System.out.println("output file: " + newFileName);
 
         this.compilationEngine = new JackCompilationEngine(jackTokenizer, new File(newFileName));
+
+//        TokenizerTest tokenizerTest= new TokenizerTest(new JackTokenizer(jackFile));
+//        tokenizerTest.createTokenXML(jackFile.getName().replace(".jack","T.xml"));
     }
 
     void run() throws IOException {
