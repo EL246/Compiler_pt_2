@@ -11,7 +11,7 @@ public class TokenizerTest {
         this.jackTokenizer = jackTokenizer;
     }
 
-    private void createTokenXML(String newFileName) throws IOException {
+    public void createTokenXML(String newFileName) throws IOException {
         BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(newFileName));
         writeTokenXML(true, bufferedWriter);
         while (jackTokenizer.hasMoreTokens()) {
