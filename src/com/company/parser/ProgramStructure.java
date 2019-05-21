@@ -7,7 +7,10 @@ public enum ProgramStructure {
     PARAMETER_LIST("parameterList"),
     SUBROUTINE_BODY("subroutineBody"),
     VAR_DEC("varDec"),
-    STATEMENTS("statements");
+    STATEMENTS("statements"),
+    EXPRESSION("expression"),
+    EXPRESSION_LIST("expressionList"),
+    TERM("term");
 
     private String name;
 
