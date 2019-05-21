@@ -8,9 +8,24 @@ class XMLWriter {
 
     static void writeXMLKeyword(String tokenType, String keyword, BufferedWriter bufferedWriter) throws IOException {
         writeXML(tokenType, true, bufferedWriter);
-        bufferedWriter.write(keyword);
+        keyword = transformKeywordIfReqd(keyword);
+        bufferedWriter.write(" " + keyword + " ");
         writeXML(tokenType, false, bufferedWriter);
         bufferedWriter.newLine();
+    }
+
+    private static String transformKeywordIfReqd(String keyword) {
+        switch (keyword) {
+            case "<":
+                return "&lt;";
+            case ">":
+                return "&gt;";
+            case "\"":
+                return "&quot;";
+            case "&":
+                return  "&amp;";
+        }
+        return keyword;
     }
 
     private static void writeXML(String string, Boolean isStart, BufferedWriter bufferedWriter) throws IOException {
