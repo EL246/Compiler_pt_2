@@ -6,6 +6,7 @@ import com.company.symbol_table.SymbolTable;
 import com.company.tokens.JackTokenizer;
 import com.company.tokens.Keyword;
 import com.company.tokens.TokenType;
+import com.company.writer.VMWriter;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -20,6 +21,9 @@ public class JackCompilationEngine {
     private BufferedWriter bufferedWriter;
     private SymbolTable symbolTable;
 
+    private String vmFileName;
+    private VMWriter vmWriter;
+
     private static final List<Character> OPS = Arrays.asList('+', '-', '*', '/', '&', '|', '<', '>', '=');
     private static final List<Character> UNARY_OPS = Arrays.asList('-', '~');
 
@@ -28,14 +32,17 @@ public class JackCompilationEngine {
         this.outputFile = output;
         this.symbolTable = new SymbolTable();
 
+        this.vmFileName = output.getAbsolutePath().replace(".xml",".vm");
     }
 
     public void handle() throws IOException {
         try {
             this.bufferedWriter = createOutputFile();
+            this.vmWriter = new VMWriter(vmFileName);
             compileClass();
         } finally {
             bufferedWriter.close();
+            vmWriter.close();
         }
     }
 
