@@ -185,12 +185,10 @@ public class JackCompilationEngine {
     }
 
     private void compileDo() throws IOException {
-        XMLWriter.startXMLCategory(Statement.DO.getName(), bufferedWriter);
         eatKeyword(Keyword.DO);
 //        checks for subroutine:
         eatSubroutineCall(jackTokenizer.identifier(), true);
         eatSymbol(';');
-        XMLWriter.endXMLCategory(Statement.DO.getName(), bufferedWriter);
 
     }
 
@@ -263,20 +261,16 @@ public class JackCompilationEngine {
     }
 
     private void compileExpression() throws IOException {
-        XMLWriter.startXMLCategory(ProgramStructure.EXPRESSION.getName(), bufferedWriter);
 //        temporarily only compileIdentifier
         compileTerm();
         while (isOperation()) {
             eatSymbol(jackTokenizer.symbol());
             compileTerm();
         }
-        XMLWriter.endXMLCategory(ProgramStructure.EXPRESSION.getName(), bufferedWriter);
     }
 
     private void compileTerm() throws IOException {
 //        assume subroutine for now
-        XMLWriter.startXMLCategory(ProgramStructure.TERM.getName(), bufferedWriter);
-
         if (jackTokenizer.tokenType().equals(TokenType.INTEGER_CONSTANT) ||
                 jackTokenizer.tokenType().equals(TokenType.STRING_CONSTANT) ||
                 isKeywordConstant()) {
@@ -291,20 +285,20 @@ public class JackCompilationEngine {
             eatSymbol(jackTokenizer.symbol());
             compileTerm();
         }
-
-        XMLWriter.endXMLCategory(ProgramStructure.TERM.getName(), bufferedWriter);
     }
 
-    private void compileExpressionList() throws IOException {
-        XMLWriter.startXMLCategory(ProgramStructure.EXPRESSION_LIST.getName(), bufferedWriter);
+    private int compileExpressionList() throws IOException {
+        int nArgs = 0;
         if (!jackTokenizer.tokenValue().equals(")")) {
             compileExpression();
+            nArgs++;
             while (jackTokenizer.tokenValue().equals(",")) {
                 eatSymbol(',');
                 compileExpression();
+                nArgs++;
             }
         }
-        XMLWriter.endXMLCategory(ProgramStructure.EXPRESSION_LIST.getName(), bufferedWriter);
+        return nArgs;
     }
 
     private void checkVarNameInTerm() throws IOException {
@@ -339,17 +333,28 @@ public class JackCompilationEngine {
         if (advanceToken) {
             advanceTokenIfPossible();
         }
+        StringBuilder subroutineName = new StringBuilder();
         if (jackTokenizer.symbol().equals('.')) {
+            subroutineName.append(tokenValue);
             eatIdentifier(tokenValue, Category.CLASS, false, false);
+
+            subroutineName.append('.');
             eatSymbol('.');
+
+            subroutineName.append(jackTokenizer.identifier());
             eatIdentifier(jackTokenizer.identifier(), Category.SUBROUTINE, true, false);
         } else {
+            subroutineName.append(tokenValue);
             eatIdentifier(tokenValue, Category.SUBROUTINE, false, false);
         }
 
+        final String fullName = subroutineName.toString();
+
         eatSymbol('(');
-        compileExpressionList();
+        final int nArgs = compileExpressionList();
         eatSymbol(')');
+
+        vmWriter.writeCall(fullName,nArgs);
     }
 
     private void eatIdentifier(String identifier, Category category, boolean advanceToken, boolean definition) throws IOException {
