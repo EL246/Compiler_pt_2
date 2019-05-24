@@ -45,7 +45,7 @@ public class SymbolTable {
 
     public Category kindOf(String name) {
         Identifier identifier = getIdentifier(name);
-        return identifier.getKind();
+        return identifier.getKind()==null? identifier.getKind() : Category.NONE;
     }
 
     public String typeOf(String name) {
