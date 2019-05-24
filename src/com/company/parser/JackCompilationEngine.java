@@ -343,8 +343,6 @@ public class JackCompilationEngine {
         eatSymbol(')');
     }
 
-    //TODO:    Should create enum more specific than Keyword for Category words?
-    //TODO:    What parameters to use for classes/subroutines?
     private void eatIdentifier(String identifier, Category category, boolean advanceToken, boolean definition) throws IOException {
 //        if (jackTokenizer.tokenType().equals(TokenType.IDENTIFIER)) {
 //        String identifier = jackTokenizer.identifier();
