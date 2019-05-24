@@ -27,12 +27,15 @@ public class JackCompilationEngine {
     private static final List<Character> OPS = Arrays.asList('+', '-', '*', '/', '&', '|', '<', '>', '=');
     private static final List<Character> UNARY_OPS = Arrays.asList('-', '~');
 
+    private String className;
+    private boolean updateXML = false;
+
     public JackCompilationEngine(JackTokenizer jackTokenizer, File output) {
         this.jackTokenizer = jackTokenizer;
         this.outputFile = output;
         this.symbolTable = new SymbolTable();
 
-        this.vmFileName = output.getAbsolutePath().replace(".xml",".vm");
+        this.vmFileName = output.getName().replace(".xml", ".vm");
     }
 
     public void handle() throws IOException {
@@ -53,9 +56,10 @@ public class JackCompilationEngine {
     private void compileClass() throws IOException {
 //        'class' classname { classVarDec* subroutineDec* }
         advanceTokenIfPossible();
-        XMLWriter.startXMLCategory(ProgramStructure.CLASS.getName(), bufferedWriter);
         eatKeyword(Keyword.CLASS);
+
 //        this does not get added to symboltable
+        this.className = jackTokenizer.identifier();
         eatIdentifier(jackTokenizer.identifier(), Category.CLASS, true, true);
         eatSymbol('{');
 
@@ -97,31 +101,29 @@ public class JackCompilationEngine {
 
     private void compileSubroutine() throws IOException {
         symbolTable.startSubroutine();
-        XMLWriter.startXMLCategory(ProgramStructure.SUBROUTINE_DEC.getName(), bufferedWriter);
 
+        final Keyword subroutineType = jackTokenizer.keyWord();
         eatSubroutineDeclaration();
         eatReturnType();
 //        subroutine name does not get defined
+        final String subroutineName = jackTokenizer.identifier();
         eatIdentifier(jackTokenizer.identifier(), Category.SUBROUTINE, true, true);
         eatSymbol('(');
         compileParameterList();
         eatSymbol(')');
-        compileSubroutineBody(); // need to implement
 
-        XMLWriter.endXMLCategory(ProgramStructure.SUBROUTINE_DEC.getName(), bufferedWriter);
-    }
-
-    private void compileSubroutineBody() throws IOException {
-        XMLWriter.startXMLCategory(ProgramStructure.SUBROUTINE_BODY.getName(), bufferedWriter);
         eatSymbol('{');
         while (isVarDec()) {
             compileVarDec();
         }
+        final int numLocal = symbolTable.varCount(Category.VAR);
+        final String fullSubName = className + "." + subroutineName;
+        vmWriter.writeFunction(fullSubName, numLocal);
+
         if (isStatement()) {
             compileStatements();
         }
         eatSymbol('}');
-        XMLWriter.endXMLCategory(ProgramStructure.SUBROUTINE_BODY.getName(), bufferedWriter);
     }
 
     private void compileParameterList() throws IOException {
@@ -406,7 +408,7 @@ public class JackCompilationEngine {
     private void eatStaticOrField() throws IOException {
         if (jackTokenizer.tokenType().equals(TokenType.KEYWORD) && (isKeyword(Keyword.STATIC) ||
                 isKeyword(Keyword.FIELD))) {
-            updateXMLandAdvanceToken(jackTokenizer.tokenType(), jackTokenizer.keyWord(), true);
+            updateXMLandAdvanceToken(jackTokenizer.tokenType(), jackTokenizer.keyWord().toString(), true);
         } else {
             throw new CompilationException("need to provide static or field, provided " +
                     jackTokenizer.tokenValue() + " " + jackTokenizer.tokenType());
@@ -416,7 +418,7 @@ public class JackCompilationEngine {
     private void eatSubroutineDeclaration() throws IOException {
         if (isKeyword(Keyword.CONSTRUCTOR) | isKeyword(Keyword.FUNCTION)
                 | isKeyword(Keyword.METHOD)) {
-            updateXMLandAdvanceToken(jackTokenizer.tokenType(), jackTokenizer.keyWord(), true);
+            updateXMLandAdvanceToken(jackTokenizer.tokenType(), jackTokenizer.keyWord().toString(), true);
         } else {
             throw new CompilationException("was expecting a subroutine declaration");
         }
@@ -424,14 +426,16 @@ public class JackCompilationEngine {
 
     private void eatReturnType() throws IOException {
         if (isKeyword(Keyword.VOID)) {
-            updateXMLandAdvanceToken(jackTokenizer.tokenType(), jackTokenizer.keyWord(), true);
+            updateXMLandAdvanceToken(jackTokenizer.tokenType(), jackTokenizer.keyWord().toString(), true);
         } else {
             eatType();
         }
     }
 
     private void updateXMLandAdvanceToken(TokenType tokenType, String s, boolean advanceToken) throws IOException {
-        XMLWriter.writeXMLKeyword(tokenType.getName(), s, bufferedWriter);
+        if (updateXML) {
+            XMLWriter.writeXMLKeyword(tokenType.getName(), s, bufferedWriter);
+        }
         if (advanceToken) {
             advanceTokenIfPossible();
         }
@@ -446,7 +450,7 @@ public class JackCompilationEngine {
 
     private String getTokenType() {
         return jackTokenizer.tokenType().equals(TokenType.IDENTIFIER) ?
-                jackTokenizer.identifier() : jackTokenizer.keyWord();
+                jackTokenizer.identifier() : jackTokenizer.keyWord().toString();
     }
 
     private boolean isClassVarDec() {
@@ -457,7 +461,11 @@ public class JackCompilationEngine {
     }
 
     private boolean isKeyword(Keyword constructor) {
-        return jackTokenizer.keyWord().equals(constructor.getName());
+        try {
+            return jackTokenizer.keyWord().equals(constructor);
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
     private boolean isTypeKeyword() {
