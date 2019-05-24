@@ -35,7 +35,10 @@ public class VMWriter {
     void writeCall(String name, int nArgs) {
     }
 
-    void writeFunction(String name, int nLocals) {
+    public void writeFunction(String name, int nLocals) throws IOException {
+        String newLine = VMKeyword.FUNCTION.getName() + " " + name + " " + nLocals;
+        bufferedWriter.write(newLine);
+        bufferedWriter.newLine();
     }
 
     void writeReturn() {
