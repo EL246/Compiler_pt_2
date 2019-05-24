@@ -1,7 +1,8 @@
 package com.company.writer;
 
 public enum VMKeyword {
-    FUNCTION("function");
+    FUNCTION("function"),
+    CALL("call");
 
     private String name;
 
