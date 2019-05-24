@@ -67,9 +67,9 @@ public class JackTokenizer {
     }
 
 //    TODO: should return enum
-    public String keyWord() {
-//        return Keyword.valueOf(pointer.getValue().toUpperCase());
-        return pointer.getValue();
+    public Keyword keyWord() {
+        return Keyword.valueOf(pointer.getValue().toUpperCase());
+//        return pointer.getValue();
     }
 
     public Character symbol() {
