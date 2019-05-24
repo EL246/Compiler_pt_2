@@ -32,7 +32,10 @@ public class VMWriter {
     void writeIf(String label) {
     }
 
-    void writeCall(String name, int nArgs) {
+    public void writeCall(String name, int nArgs) throws IOException {
+        String newLine = VMKeyword.CALL.getName() + " " + name + " "  + nArgs;
+        bufferedWriter.write(newLine);
+        bufferedWriter.newLine();
     }
 
     public void writeFunction(String name, int nLocals) throws IOException {
