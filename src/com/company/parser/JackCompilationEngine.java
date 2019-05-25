@@ -19,6 +19,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.company.tokens.TokenType.KEYWORD;
+
 public class JackCompilationEngine {
     private JackTokenizer jackTokenizer;
     private File outputFile;
@@ -31,9 +33,11 @@ public class JackCompilationEngine {
     private static final List<Character> OPS = Arrays.asList('+', '-', '*', '/', '&', '|', '<', '>', '=');
     private static final List<Character> UNARY_OPS = Arrays.asList('-', '~');
     private static Map<Character, ArithmeticCommand> OP_ARITH;
+    private static Map<Category, PushPopSegment> VAR_TO_SEGMENT;
 
     private String className;
     private boolean updateXML = false;
+    private int labelId;
 
     static {
         OP_ARITH = new HashMap<>();
@@ -44,6 +48,12 @@ public class JackCompilationEngine {
         OP_ARITH.put('<', ArithmeticCommand.LT);
         OP_ARITH.put('>', ArithmeticCommand.GT);
         OP_ARITH.put('=', ArithmeticCommand.EQ);
+
+        VAR_TO_SEGMENT = new HashMap<>();
+        VAR_TO_SEGMENT.put(Category.VAR, PushPopSegment.LOCAL);
+        VAR_TO_SEGMENT.put(Category.ARG, PushPopSegment.ARG);
+        VAR_TO_SEGMENT.put(Category.STATIC, PushPopSegment.STATIC);
+        VAR_TO_SEGMENT.put(Category.FIELD, PushPopSegment.THIS);
     }
 
     public JackCompilationEngine(JackTokenizer jackTokenizer, File output, String vmFileName) {
@@ -52,6 +62,7 @@ public class JackCompilationEngine {
         this.symbolTable = new SymbolTable();
 
         this.vmFileName = vmFileName;
+        this.labelId = 0;
     }
 
     public void handle() throws IOException {
@@ -92,8 +103,6 @@ public class JackCompilationEngine {
 
     private void compileClassVarDec() throws IOException {
 //        static|field type varname
-        XMLWriter.startXMLCategory(ProgramStructure.CLASS_VAR_DEC.getName(), bufferedWriter);
-
         final Category category = isKeyword(Keyword.STATIC) ? Category.STATIC : Category.FIELD;
         eatStaticOrField();
 
@@ -106,13 +115,10 @@ public class JackCompilationEngine {
 //        String symbol = jackTokenizer.symbol();
         while (jackTokenizer.symbol().equals(',')) {
             eatSymbol(',');
-
             defineSymbolTableandEatIdentifier(type, category, jackTokenizer.identifier());
         }
 
         eatSymbol(';');
-        XMLWriter.endXMLCategory(ProgramStructure.CLASS_VAR_DEC.getName(), bufferedWriter);
-
     }
 
     private void compileSubroutine() throws IOException {
@@ -143,7 +149,6 @@ public class JackCompilationEngine {
     }
 
     private void compileParameterList() throws IOException {
-        XMLWriter.startXMLCategory(ProgramStructure.PARAMETER_LIST.getName(), bufferedWriter);
         if (existsParameterList()) {
             String type = getTokenType();
             eatType();
@@ -159,12 +164,9 @@ public class JackCompilationEngine {
                 defineSymbolTableandEatIdentifier(type, category, jackTokenizer.identifier());
             }
         }
-        XMLWriter.endXMLCategory(ProgramStructure.PARAMETER_LIST.getName(), bufferedWriter);
     }
 
     private void compileVarDec() throws IOException {
-        XMLWriter.startXMLCategory(ProgramStructure.VAR_DEC.getName(), bufferedWriter);
-
         final Category category = Category.VAR;
         eatKeyword(Keyword.VAR);
 
@@ -178,11 +180,9 @@ public class JackCompilationEngine {
             defineSymbolTableandEatIdentifier(type, category, jackTokenizer.identifier());
         }
         eatSymbol(';');
-        XMLWriter.endXMLCategory(ProgramStructure.VAR_DEC.getName(), bufferedWriter);
     }
 
     private void compileStatements() throws IOException {
-        XMLWriter.startXMLCategory(ProgramStructure.STATEMENTS.getName(), bufferedWriter);
         while (isStatement()) {
 //            refactor to factory or switch statement
             if (isLetStatement()) {
@@ -197,7 +197,6 @@ public class JackCompilationEngine {
                 compileReturn();
             }
         }
-        XMLWriter.endXMLCategory(ProgramStructure.STATEMENTS.getName(), bufferedWriter);
     }
 
     private void compileDo() throws IOException {
@@ -205,11 +204,10 @@ public class JackCompilationEngine {
 //        checks for subroutine:
         eatSubroutineCall(jackTokenizer.identifier(), true);
         eatSymbol(';');
-
+        vmWriter.writePop(PushPopSegment.TEMP,0);
     }
 
     private void compileLet() throws IOException {
-        XMLWriter.startXMLCategory(Statement.LET.getName(), bufferedWriter);
         eatKeyword(Keyword.LET);
 
         String identifier = jackTokenizer.identifier();
@@ -224,19 +222,32 @@ public class JackCompilationEngine {
         eatSymbol('=');
         compileExpression();
         eatSymbol(';');
-        XMLWriter.endXMLCategory(Statement.LET.getName(), bufferedWriter);
+
+        Category identifierKind = symbolTable.kindOf(identifier);
+        PushPopSegment segment = VAR_TO_SEGMENT.get(identifierKind);
+        int index = symbolTable.indexOf(identifier);
+        vmWriter.writePop(segment,index);
     }
 
     private void compileWhile() throws IOException {
-        XMLWriter.startXMLCategory(Statement.WHILE.getName(), bufferedWriter);
+        String whileLabel = createNewLabel("WHILE-START");
+        vmWriter.writeLabel(whileLabel);
+
         eatKeyword(Keyword.WHILE);
         eatSymbol('(');
         compileExpression();
         eatSymbol(')');
+
+        vmWriter.writeArithmetic(ArithmeticCommand.NOT);
+        String exitLabel = createNewLabel("WHILE-END");
+        vmWriter.writeIf(exitLabel);
+
         eatSymbol('{');
         compileStatements();
         eatSymbol('}');
-        XMLWriter.endXMLCategory(Statement.WHILE.getName(), bufferedWriter);
+
+        vmWriter.writeGoto(whileLabel);
+        vmWriter.writeLabel(exitLabel);
     }
 
     private void compileReturn() throws IOException {
@@ -251,18 +262,25 @@ public class JackCompilationEngine {
     }
 
     private void compileIf() throws IOException {
-        XMLWriter.startXMLCategory(Statement.IF.getName(), bufferedWriter);
-
         eatKeyword(Keyword.IF);
         eatSymbol('(');
         compileExpression();
         eatSymbol(')');
+
+        vmWriter.writeArithmetic(ArithmeticCommand.NOT);
+        String elseLabel = createNewLabel("IF-FALSE");
+        vmWriter.writeIf(elseLabel);
+        String endLabel = createNewLabel("END");
+
         eatSymbol('{');
         if (isStatement()) {
             compileStatements();
         }
         eatSymbol('}');
 
+        vmWriter.writeGoto(endLabel);
+
+        vmWriter.writeLabel(elseLabel);
         if (isKeyword(Keyword.ELSE)) {
             eatKeyword(Keyword.ELSE);
             eatSymbol('{');
@@ -272,7 +290,7 @@ public class JackCompilationEngine {
             eatSymbol('}');
         }
 
-        XMLWriter.endXMLCategory(Statement.IF.getName(), bufferedWriter);
+        vmWriter.writeLabel(endLabel);
     }
 
     private void compileExpression() throws IOException {
@@ -309,8 +327,8 @@ public class JackCompilationEngine {
                 vmWriter.writeCall("String.appendChar", 2);
             }
             advanceTokenIfPossible();
-//            TODO: implement vmwriter for below statements
         } else if (isKeywordConstant()) {
+            handleKeywordConstant();
             advanceTokenIfPossible();
         } else if (jackTokenizer.tokenType().equals(TokenType.IDENTIFIER)) {
             checkVarNameInTerm();
@@ -341,6 +359,7 @@ public class JackCompilationEngine {
         return nArgs;
     }
 
+//    TODO: implement vmwriter for this method
     private void checkVarNameInTerm() throws IOException {
 //        symbol table should not be updated because this variable should already exist in the symbol table
         final String currentTokenValue = jackTokenizer.identifier();
@@ -352,6 +371,11 @@ public class JackCompilationEngine {
         } else if (isSymbol && jackTokenizer.symbol().equals('[')) {
             eatArray(currentTokenValue);
         } else {
+//            TODO: extract this code into separate method -- repetitive
+            Category identifierKind = symbolTable.kindOf(currentTokenValue);
+            PushPopSegment segment = VAR_TO_SEGMENT.get(identifierKind);
+            int index = symbolTable.indexOf(currentTokenValue);
+            vmWriter.writePush(segment,index);
             eatIdentifier(currentTokenValue, symbolTable.kindOf(currentTokenValue), false, true);
         }
     }
@@ -419,8 +443,8 @@ public class JackCompilationEngine {
     }
 
     private void eatKeyword(Keyword keyword) throws IOException {
-        if (jackTokenizer.tokenType().equals(TokenType.KEYWORD) && isKeyword(keyword)) {
-            updateXMLandAdvanceToken(TokenType.KEYWORD, keyword.getName(), true);
+        if (jackTokenizer.tokenType().equals(KEYWORD) && isKeyword(keyword)) {
+            updateXMLandAdvanceToken(KEYWORD, keyword.getName(), true);
         } else {
             throw new CompilationException("expected keyword: " + keyword);
         }
@@ -451,7 +475,7 @@ public class JackCompilationEngine {
     }
 
     private void eatStaticOrField() throws IOException {
-        if (jackTokenizer.tokenType().equals(TokenType.KEYWORD) && (isKeyword(Keyword.STATIC) ||
+        if (jackTokenizer.tokenType().equals(KEYWORD) && (isKeyword(Keyword.STATIC) ||
                 isKeyword(Keyword.FIELD))) {
             updateXMLandAdvanceToken(jackTokenizer.tokenType(), jackTokenizer.keyWord().toString(), true);
         } else {
@@ -499,7 +523,7 @@ public class JackCompilationEngine {
     }
 
     private boolean isClassVarDec() {
-        boolean a = jackTokenizer.tokenType().equals(TokenType.KEYWORD);
+        boolean a = jackTokenizer.tokenType().equals(KEYWORD);
         boolean b = isKeyword(Keyword.STATIC) ||
                 isKeyword(Keyword.FIELD);
         return a & b;
@@ -514,7 +538,7 @@ public class JackCompilationEngine {
     }
 
     private boolean isTypeKeyword() {
-        return (jackTokenizer.tokenType().equals(TokenType.KEYWORD)) &&
+        return (jackTokenizer.tokenType().equals(KEYWORD)) &&
                 (isKeyword(Keyword.INT) ||
                         isKeyword(Keyword.BOOLEAN) ||
                         isKeyword(Keyword.CHAR));
@@ -566,8 +590,32 @@ public class JackCompilationEngine {
     }
 
     private boolean isKeywordConstant() {
-        return jackTokenizer.tokenType().equals(TokenType.KEYWORD) && (isKeyword(Keyword.TRUE) ||
+        return jackTokenizer.tokenType().equals(KEYWORD) && (isKeyword(Keyword.TRUE) ||
                 isKeyword(Keyword.FALSE) || isKeyword(Keyword.NULL) || isKeyword(Keyword.THIS));
+    }
+
+    private void handleKeywordConstant() throws IOException {
+        Keyword keyword = jackTokenizer.keyWord();
+        switch (keyword) {
+            case TRUE:
+                vmWriter.writePush(PushPopSegment.CONST,1);
+                vmWriter.writeArithmetic(ArithmeticCommand.NEG);
+                break;
+            case FALSE:
+            case NULL:
+                vmWriter.writePush(PushPopSegment.CONST,0);
+                break;
+            case THIS:
+//                TODO: push pointer 0, or push this 0?
+                vmWriter.writePush(PushPopSegment.POINTER,0);
+                break;
+        }
+    }
+
+    private String createNewLabel(String label) {
+        String newLabel = label + "." + labelId;
+        labelId++;
+        return newLabel;
     }
 
 }
