@@ -12,11 +12,11 @@ public class VMWriter {
     }
 
     public void writePush(PushPopSegment segment, int index) throws IOException {
-        bufferedWriter.write("push " + segment.getName() + " " + index);
-        bufferedWriter.newLine();
+        writePushPop(true, segment, index);
     }
 
-    void writePop(String segment, int index) {
+    public void writePop(PushPopSegment segment, int index) throws IOException {
+        writePushPop(false, segment, index);
     }
 
     public void writeArithmetic(ArithmeticCommand command) throws IOException {
@@ -24,18 +24,20 @@ public class VMWriter {
         bufferedWriter.newLine();
     }
 
-    void writeLabel(String label) {
+    public void writeLabel(String label) throws IOException {
+        writeLabelCommand("label",label);
     }
 
-    void writeGoto(String label) {
-
+    public void writeGoto(String label) throws IOException {
+        writeLabelCommand("goto",label);
     }
 
-    void writeIf(String label) {
+    public void writeIf(String label) throws IOException {
+        writeLabelCommand("if-goto",label);
     }
 
     public void writeCall(String name, int nArgs) throws IOException {
-        String newLine = VMKeyword.CALL.getName() + " " + name + " "  + nArgs;
+        String newLine = VMKeyword.CALL.getName() + " " + name + " " + nArgs;
         bufferedWriter.write(newLine);
         bufferedWriter.newLine();
     }
@@ -55,6 +57,15 @@ public class VMWriter {
         bufferedWriter.close();
     }
 
+    private void writePushPop(boolean isPush, PushPopSegment segment, int index) throws IOException {
+        String command = isPush ? "push " : "pop ";
+        bufferedWriter.write(command + segment.getName() + " " + index);
+        bufferedWriter.newLine();
+    }
 
+    private void writeLabelCommand(String command, String label) throws IOException {
+        bufferedWriter.write(command + " " + label);
+        bufferedWriter.newLine();
+    }
 
 }
