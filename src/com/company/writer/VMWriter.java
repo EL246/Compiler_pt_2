@@ -6,20 +6,22 @@ import java.io.IOException;
 
 public class VMWriter {
     private final BufferedWriter bufferedWriter;
-    private String filepath;
 
     public VMWriter(String filepath) throws IOException {
-        this.filepath = filepath;
         this.bufferedWriter = new BufferedWriter(new FileWriter(filepath));
     }
 
-    void writePush(String segment, int index) {
+    public void writePush(PushPopSegment segment, int index) throws IOException {
+        bufferedWriter.write("push " + segment.getName() + " " + index);
+        bufferedWriter.newLine();
     }
 
     void writePop(String segment, int index) {
     }
 
-    void writeArithmetic(String command) {
+    public void writeArithmetic(ArithmeticCommand command) throws IOException {
+        bufferedWriter.write(command.getName());
+        bufferedWriter.newLine();
     }
 
     void writeLabel(String label) {
@@ -44,7 +46,9 @@ public class VMWriter {
         bufferedWriter.newLine();
     }
 
-    void writeReturn() {
+    public void writeReturn() throws IOException {
+        bufferedWriter.write("return");
+        bufferedWriter.newLine();
     }
 
     public void close() throws IOException {
