@@ -6,8 +6,7 @@ public enum Category {
     STATIC("static"),
     FIELD("field"),
     CLASS("class"),
-    SUBROUTINE("subroutine"),
-    NONE("none");
+    SUBROUTINE("subroutine");
 
     private String name;
 
