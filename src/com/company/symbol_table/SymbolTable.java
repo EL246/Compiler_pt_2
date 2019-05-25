@@ -9,7 +9,6 @@ public class SymbolTable {
     private HashMap<String, Identifier> classTable;
     private HashMap<String, Identifier> subroutineTable;
     private HashMap<Category, Integer> indices;
-    private int fieldIndex, staticIndex, argIndex, localIndex;
     private boolean classScope;
 
     public SymbolTable() {
@@ -45,7 +44,7 @@ public class SymbolTable {
 
     public Category kindOf(String name) {
         Identifier identifier = getIdentifier(name);
-        return identifier.getKind()==null? identifier.getKind() : Category.NONE;
+        return identifier.getKind();
     }
 
     public String typeOf(String name) {
