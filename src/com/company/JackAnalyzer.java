@@ -48,7 +48,9 @@ class JackAnalyzer {
         String newFileName = jackFile.getName().replace(".jack", ".xml");
         System.out.println("output file: " + newFileName);
 
-        JackCompilationEngine compilationEngine = new JackCompilationEngine(jackTokenizer, new File(newFileName));
+        String newVMFileName = jackFile.getAbsolutePath().replace(".jack",".vm");
+
+        JackCompilationEngine compilationEngine = new JackCompilationEngine(jackTokenizer, new File(newFileName), newVMFileName);
         compilationEngine.handle();
 
 //        TokenizerTest tokenizerTest= new TokenizerTest(new JackTokenizer(jackFile));
