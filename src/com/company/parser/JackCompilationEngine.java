@@ -6,6 +6,8 @@ import com.company.symbol_table.SymbolTable;
 import com.company.tokens.JackTokenizer;
 import com.company.tokens.Keyword;
 import com.company.tokens.TokenType;
+import com.company.writer.ArithmeticCommand;
+import com.company.writer.PushPopSegment;
 import com.company.writer.VMWriter;
 
 import java.io.BufferedWriter;
@@ -13,7 +15,9 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class JackCompilationEngine {
     private JackTokenizer jackTokenizer;
@@ -26,16 +30,28 @@ public class JackCompilationEngine {
 
     private static final List<Character> OPS = Arrays.asList('+', '-', '*', '/', '&', '|', '<', '>', '=');
     private static final List<Character> UNARY_OPS = Arrays.asList('-', '~');
+    private static Map<Character, ArithmeticCommand> OP_ARITH;
 
     private String className;
     private boolean updateXML = false;
 
-    public JackCompilationEngine(JackTokenizer jackTokenizer, File output) {
+    static {
+        OP_ARITH = new HashMap<>();
+        OP_ARITH.put('+', ArithmeticCommand.ADD);
+        OP_ARITH.put('-', ArithmeticCommand.SUB);
+        OP_ARITH.put('&', ArithmeticCommand.AND);
+        OP_ARITH.put('|', ArithmeticCommand.OR);
+        OP_ARITH.put('<', ArithmeticCommand.LT);
+        OP_ARITH.put('>', ArithmeticCommand.GT);
+        OP_ARITH.put('=', ArithmeticCommand.EQ);
+    }
+
+    public JackCompilationEngine(JackTokenizer jackTokenizer, File output, String vmFileName) {
         this.jackTokenizer = jackTokenizer;
         this.outputFile = output;
         this.symbolTable = new SymbolTable();
 
-        this.vmFileName = output.getName().replace(".xml", ".vm");
+        this.vmFileName = vmFileName;
     }
 
     public void handle() throws IOException {
@@ -224,15 +240,14 @@ public class JackCompilationEngine {
     }
 
     private void compileReturn() throws IOException {
-        XMLWriter.startXMLCategory(Statement.RETURN.getName(), bufferedWriter);
         eatKeyword(Keyword.RETURN);
         if (!jackTokenizer.tokenValue().equals(";")) {
             compileExpression();
+        } else {
+            vmWriter.writePush(PushPopSegment.CONST,0);
         }
         eatSymbol(';');
-
-        XMLWriter.endXMLCategory(Statement.RETURN.getName(), bufferedWriter);
-
+        vmWriter.writeReturn();
     }
 
     private void compileIf() throws IOException {
@@ -264,17 +279,39 @@ public class JackCompilationEngine {
 //        temporarily only compileIdentifier
         compileTerm();
         while (isOperation()) {
-            eatSymbol(jackTokenizer.symbol());
+            char operation = jackTokenizer.symbol();
+            eatSymbol(operation);
             compileTerm();
+
+            ArithmeticCommand arithmeticCommand = OP_ARITH.get(operation);
+            if (arithmeticCommand != null) {
+                vmWriter.writeArithmetic(arithmeticCommand);
+            } else if (operation == '*') {
+                vmWriter.writeCall("Math.multiply", 2);
+            } else if (operation == '/') {
+                vmWriter.writeCall("Math.divide", 2);
+            }
         }
     }
 
     private void compileTerm() throws IOException {
 //        assume subroutine for now
-        if (jackTokenizer.tokenType().equals(TokenType.INTEGER_CONSTANT) ||
-                jackTokenizer.tokenType().equals(TokenType.STRING_CONSTANT) ||
-                isKeywordConstant()) {
-            updateXMLandAdvanceToken(jackTokenizer.tokenType(), jackTokenizer.tokenValue(), true);
+        if (jackTokenizer.tokenType().equals(TokenType.INTEGER_CONSTANT)) {
+            vmWriter.writePush(PushPopSegment.CONST, jackTokenizer.intVal());
+            advanceTokenIfPossible();
+        } else if (jackTokenizer.tokenType().equals(TokenType.STRING_CONSTANT)) {
+            char[] stringConst = jackTokenizer.stringVal().toCharArray();
+            if (stringConst.length > 0) {
+                vmWriter.writePush(PushPopSegment.CONST, stringConst[0]);
+            }
+            for (int i = 1; i < stringConst.length; i++) {
+                vmWriter.writePush(PushPopSegment.CONST, stringConst[i]);
+                vmWriter.writeCall("String.appendChar", 2);
+            }
+            advanceTokenIfPossible();
+//            TODO: implement vmwriter for below statements
+        } else if (isKeywordConstant()) {
+            advanceTokenIfPossible();
         } else if (jackTokenizer.tokenType().equals(TokenType.IDENTIFIER)) {
             checkVarNameInTerm();
         } else if (jackTokenizer.tokenType().equals(TokenType.SYMBOL) && jackTokenizer.symbol().equals('(')) {
@@ -282,8 +319,11 @@ public class JackCompilationEngine {
             compileExpression();
             eatSymbol(')');
         } else if (jackTokenizer.tokenType().equals(TokenType.SYMBOL) && UNARY_OPS.contains(jackTokenizer.symbol())) {
-            eatSymbol(jackTokenizer.symbol());
+            char unaryOp = jackTokenizer.symbol();
+            eatSymbol(unaryOp);
             compileTerm();
+            ArithmeticCommand unaryOpCommand = unaryOp == '-' ? ArithmeticCommand.NEG : ArithmeticCommand.NOT;
+            vmWriter.writeArithmetic(unaryOpCommand);
         }
     }
 
@@ -354,7 +394,7 @@ public class JackCompilationEngine {
         final int nArgs = compileExpressionList();
         eatSymbol(')');
 
-        vmWriter.writeCall(fullName,nArgs);
+        vmWriter.writeCall(fullName, nArgs);
     }
 
     private void eatIdentifier(String identifier, Category category, boolean advanceToken, boolean definition) throws IOException {
