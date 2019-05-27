@@ -1,7 +1,6 @@
 package com.company.parser;
 
 import com.company.identifier.Category;
-import com.company.identifier.IdentifierParam;
 import com.company.symbol_table.SymbolTable;
 import com.company.tokens.JackTokenizer;
 import com.company.tokens.Keyword;
@@ -14,10 +13,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static com.company.tokens.TokenType.KEYWORD;
 
@@ -142,6 +138,17 @@ public class JackCompilationEngine {
         final String fullSubName = className + "." + subroutineName;
         vmWriter.writeFunction(fullSubName, numLocal);
 
+        if (subroutineType.equals(Keyword.CONSTRUCTOR)) {
+            int size = symbolTable.varCount(Category.FIELD);
+            vmWriter.writePush(PushPopSegment.CONST, size);
+            vmWriter.writeCall("Memory.alloc", 1);
+            vmWriter.writePop(PushPopSegment.POINTER, 0);
+        } else if (subroutineType.equals(Keyword.METHOD)) {
+            vmWriter.writePush(PushPopSegment.ARG, 0);
+            vmWriter.writePop(PushPopSegment.POINTER, 0);
+            symbolTable.define("this",className,Category.ARG);
+        }
+
         if (isStatement()) {
             compileStatements();
         }
@@ -204,7 +211,7 @@ public class JackCompilationEngine {
 //        checks for subroutine:
         eatSubroutineCall(jackTokenizer.identifier(), true);
         eatSymbol(';');
-        vmWriter.writePop(PushPopSegment.TEMP,0);
+        vmWriter.writePop(PushPopSegment.TEMP, 0);
     }
 
     private void compileLet() throws IOException {
@@ -223,10 +230,9 @@ public class JackCompilationEngine {
         compileExpression();
         eatSymbol(';');
 
-        Category identifierKind = symbolTable.kindOf(identifier);
-        PushPopSegment segment = VAR_TO_SEGMENT.get(identifierKind);
+        PushPopSegment segment = getPushPopSegment(identifier);
         int index = symbolTable.indexOf(identifier);
-        vmWriter.writePop(segment,index);
+        vmWriter.writePop(segment, index);
     }
 
     private void compileWhile() throws IOException {
@@ -255,7 +261,7 @@ public class JackCompilationEngine {
         if (!jackTokenizer.tokenValue().equals(";")) {
             compileExpression();
         } else {
-            vmWriter.writePush(PushPopSegment.CONST,0);
+            vmWriter.writePush(PushPopSegment.CONST, 0);
         }
         eatSymbol(';');
         vmWriter.writeReturn();
@@ -268,7 +274,7 @@ public class JackCompilationEngine {
         eatSymbol(')');
 
         vmWriter.writeArithmetic(ArithmeticCommand.NOT);
-        String elseLabel = createNewLabel("IF-FALSE");
+        String elseLabel = createNewLabel("ELSE");
         vmWriter.writeIf(elseLabel);
         String endLabel = createNewLabel("END");
 
@@ -359,7 +365,7 @@ public class JackCompilationEngine {
         return nArgs;
     }
 
-//    TODO: implement vmwriter for this method
+    //    TODO: implement vmwriter for this method
     private void checkVarNameInTerm() throws IOException {
 //        symbol table should not be updated because this variable should already exist in the symbol table
         final String currentTokenValue = jackTokenizer.identifier();
@@ -372,15 +378,14 @@ public class JackCompilationEngine {
             eatArray(currentTokenValue);
         } else {
 //            TODO: extract this code into separate method -- repetitive
-            Category identifierKind = symbolTable.kindOf(currentTokenValue);
-            PushPopSegment segment = VAR_TO_SEGMENT.get(identifierKind);
+            PushPopSegment segment = getPushPopSegment(currentTokenValue);
             int index = symbolTable.indexOf(currentTokenValue);
-            vmWriter.writePush(segment,index);
+            vmWriter.writePush(segment, index);
             eatIdentifier(currentTokenValue, symbolTable.kindOf(currentTokenValue), false, true);
         }
     }
 
-    private void defineSymbolTableandEatIdentifier(String type, Category category, String identifier) throws IOException {
+    private void defineSymbolTableandEatIdentifier(String type, Category category, String identifier) {
         symbolTable.define(identifier, type, category);
         eatIdentifier(identifier, category, true, true);
     }
@@ -397,9 +402,29 @@ public class JackCompilationEngine {
         if (advanceToken) {
             advanceTokenIfPossible();
         }
+        boolean isMethod = false;
+        boolean inCurrentClass = false;
+        Integer index = null;
+
         StringBuilder subroutineName = new StringBuilder();
         if (jackTokenizer.symbol().equals('.')) {
-            subroutineName.append(tokenValue);
+
+            try {
+                index = symbolTable.indexOf(tokenValue);
+                if (index != null) {
+                    isMethod = true;
+                }
+            } catch (NullPointerException ignored) {
+            }
+
+            String classValue;
+            if (isMethod) {
+                classValue = symbolTable.typeOf(tokenValue);
+            } else {
+                classValue = tokenValue;
+            }
+
+            subroutineName.append(classValue);
             eatIdentifier(tokenValue, Category.CLASS, false, false);
 
             subroutineName.append('.');
@@ -407,39 +432,47 @@ public class JackCompilationEngine {
 
             subroutineName.append(jackTokenizer.identifier());
             eatIdentifier(jackTokenizer.identifier(), Category.SUBROUTINE, true, false);
+
         } else {
+            inCurrentClass = true;
+            isMethod = true;
+//            this is definitely a method because functions and constructors must be called with the classname
+
+            subroutineName.append(className);
+            subroutineName.append('.');
             subroutineName.append(tokenValue);
             eatIdentifier(tokenValue, Category.SUBROUTINE, false, false);
         }
 
         final String fullName = subroutineName.toString();
 
+        if (isMethod) {
+//            make sure it's not a constructor
+//            if the variable exists in the table, the variable is not a Class name, but rather an object name
+//            otherwise, assuming correctly written code, it is a class, and should be treated as a constructor
+//            TODO: refactor
+            if (inCurrentClass) {
+                vmWriter.writePush(PushPopSegment.POINTER, 0);
+            } else {
+                PushPopSegment segment = getPushPopSegment(tokenValue);
+                vmWriter.writePush(segment, index);
+            }
+        }
+
+
         eatSymbol('(');
-        final int nArgs = compileExpressionList();
+        int nArgs = compileExpressionList();
         eatSymbol(')');
+
+        nArgs = isMethod ? nArgs + 1 : nArgs;
 
         vmWriter.writeCall(fullName, nArgs);
     }
 
-    private void eatIdentifier(String identifier, Category category, boolean advanceToken, boolean definition) throws IOException {
-//        if (jackTokenizer.tokenType().equals(TokenType.IDENTIFIER)) {
-//        String identifier = jackTokenizer.identifier();
-        XMLWriter.startXMLCategory(TokenType.IDENTIFIER.getName(), bufferedWriter);
-        XMLWriter.writeXMLKeyword(IdentifierParam.NAME.getName(), identifier, bufferedWriter);
-        XMLWriter.writeXMLKeyword(IdentifierParam.CATEGORY.getName(), category.getName(), bufferedWriter);
-        int index;
-        try {
-            index = symbolTable.indexOf(identifier);
-        } catch (NullPointerException e) {
-            index = 0;
-        }
-        XMLWriter.writeXMLKeyword(IdentifierParam.RUNNING_INDEX.getName(), String.valueOf(index), bufferedWriter);
-        XMLWriter.writeXMLKeyword(IdentifierParam.DEFINED.getName(), String.valueOf(definition), bufferedWriter);
-
+    private void eatIdentifier(String identifier, Category category, boolean advanceToken, boolean definition) {
         if (advanceToken) {
             advanceTokenIfPossible();
         }
-        XMLWriter.endXMLCategory(TokenType.IDENTIFIER.getName(), bufferedWriter);
     }
 
     private void eatKeyword(Keyword keyword) throws IOException {
@@ -451,9 +484,9 @@ public class JackCompilationEngine {
     }
 
     //    TODO: redundant with eatKeyword method, need to refactor
-    private void eatSymbol(Character symbol) throws IOException {
+    private void eatSymbol(Character symbol) {
         if (jackTokenizer.tokenType().equals(TokenType.SYMBOL) && jackTokenizer.symbol().equals(symbol)) {
-            updateXMLandAdvanceToken(TokenType.SYMBOL, symbol.toString(), true);
+            advanceTokenIfPossible();
         } else {
             throw new CompilationException("expected symbol: " + symbol);
         }
@@ -598,16 +631,15 @@ public class JackCompilationEngine {
         Keyword keyword = jackTokenizer.keyWord();
         switch (keyword) {
             case TRUE:
-                vmWriter.writePush(PushPopSegment.CONST,1);
+                vmWriter.writePush(PushPopSegment.CONST, 1);
                 vmWriter.writeArithmetic(ArithmeticCommand.NEG);
                 break;
             case FALSE:
             case NULL:
-                vmWriter.writePush(PushPopSegment.CONST,0);
+                vmWriter.writePush(PushPopSegment.CONST, 0);
                 break;
             case THIS:
-//                TODO: push pointer 0, or push this 0?
-                vmWriter.writePush(PushPopSegment.POINTER,0);
+                vmWriter.writePush(PushPopSegment.POINTER, 0);
                 break;
         }
     }
@@ -618,4 +650,8 @@ public class JackCompilationEngine {
         return newLabel;
     }
 
+    private PushPopSegment getPushPopSegment(String tokenValue) {
+        Category category = symbolTable.kindOf(tokenValue);
+        return VAR_TO_SEGMENT.get(category);
+    }
 }
