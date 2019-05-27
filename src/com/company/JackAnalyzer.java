@@ -53,7 +53,5 @@ class JackAnalyzer {
         JackCompilationEngine compilationEngine = new JackCompilationEngine(jackTokenizer, new File(newFileName), newVMFileName);
         compilationEngine.handle();
 
-//        TokenizerTest tokenizerTest= new TokenizerTest(new JackTokenizer(jackFile));
-//        tokenizerTest.createTokenXML(jackFile.getName().replace(".jack","T.xml"));
     }
 }
