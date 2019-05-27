@@ -53,7 +53,7 @@ public class SymbolTable {
 
     }
 
-    public int indexOf(String name) {
+    public Integer indexOf(String name) {
         Identifier identifier = getIdentifier(name);
         return identifier.getRunningIndex();
     }
