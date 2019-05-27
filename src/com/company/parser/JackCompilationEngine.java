@@ -146,7 +146,7 @@ public class JackCompilationEngine {
         } else if (subroutineType.equals(Keyword.METHOD)) {
             vmWriter.writePush(PushPopSegment.ARG, 0);
             vmWriter.writePop(PushPopSegment.POINTER, 0);
-            symbolTable.define("this",className,Category.ARG);
+            symbolTable.define("this", className, Category.ARG);
         }
 
         if (isStatement()) {
@@ -191,17 +191,22 @@ public class JackCompilationEngine {
 
     private void compileStatements() throws IOException {
         while (isStatement()) {
-//            refactor to factory or switch statement
-            if (isLetStatement()) {
-                compileLet();
-            } else if (isIfStatement()) {
-                compileIf();
-            } else if (isWhileStatement()) {
-                compileWhile();
-            } else if (isDoStatement()) {
-                compileDo();
-            } else if (isReturnStatement()) {
-                compileReturn();
+            switch (jackTokenizer.keyWord()) {
+                case LET:
+                    compileLet();
+                    break;
+                case IF:
+                    compileIf();
+                    break;
+                case WHILE:
+                    compileWhile();
+                    break;
+                case DO:
+                    compileDo();
+                    break;
+                case RETURN:
+                    compileReturn();
+                    break;
             }
         }
     }
@@ -581,31 +586,10 @@ public class JackCompilationEngine {
         return isTypeKeyword();
     }
 
-
     private boolean isStatement() {
-        return isLetStatement() || isIfStatement() ||
-                isWhileStatement() ||
-                isDoStatement() || isReturnStatement();
-    }
-
-    private boolean isReturnStatement() {
-        return isKeyword(Keyword.RETURN);
-    }
-
-    private boolean isDoStatement() {
-        return isKeyword(Keyword.DO);
-    }
-
-    private boolean isWhileStatement() {
-        return isKeyword(Keyword.WHILE);
-    }
-
-    private boolean isIfStatement() {
-        return isKeyword(Keyword.IF);
-    }
-
-    private boolean isLetStatement() {
-        return isKeyword(Keyword.LET);
+        return isKeyword(Keyword.LET) || isKeyword(Keyword.IF) ||
+                isKeyword(Keyword.WHILE) ||
+                isKeyword(Keyword.DO) || isKeyword(Keyword.RETURN);
     }
 
     private boolean isVarDec() {
