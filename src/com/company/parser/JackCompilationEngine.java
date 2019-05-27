@@ -32,7 +32,6 @@ public class JackCompilationEngine {
     private static Map<Category, PushPopSegment> VAR_TO_SEGMENT;
 
     private String className;
-    private boolean updateXML = false;
     private int labelId;
 
     static {
@@ -94,10 +93,9 @@ public class JackCompilationEngine {
         }
 
         eatSymbol('}');
-        XMLWriter.endXMLCategory("class", bufferedWriter);
     }
 
-    private void compileClassVarDec() throws IOException {
+    private void compileClassVarDec() {
 //        static|field type varname
         final Category category = isKeyword(Keyword.STATIC) ? Category.STATIC : Category.FIELD;
         eatStaticOrField();
@@ -155,7 +153,7 @@ public class JackCompilationEngine {
         eatSymbol('}');
     }
 
-    private void compileParameterList() throws IOException {
+    private void compileParameterList() {
         if (existsParameterList()) {
             String type = getTokenType();
             eatType();
@@ -173,7 +171,7 @@ public class JackCompilationEngine {
         }
     }
 
-    private void compileVarDec() throws IOException {
+    private void compileVarDec() {
         final Category category = Category.VAR;
         eatKeyword(Keyword.VAR);
 
@@ -480,9 +478,9 @@ public class JackCompilationEngine {
         }
     }
 
-    private void eatKeyword(Keyword keyword) throws IOException {
+    private void eatKeyword(Keyword keyword) {
         if (jackTokenizer.tokenType().equals(KEYWORD) && isKeyword(keyword)) {
-            updateXMLandAdvanceToken(KEYWORD, keyword.getName(), true);
+            advanceTokenIfPossible();
         } else {
             throw new CompilationException("expected keyword: " + keyword);
         }
@@ -497,14 +495,13 @@ public class JackCompilationEngine {
         }
     }
 
-    private void eatType() throws IOException {
+    private void eatType() {
         if (jackTokenizer.tokenType().equals(TokenType.IDENTIFIER) || isTypeKeyword()) {
             String keyword = getTokenType();
             if (jackTokenizer.tokenType().equals(TokenType.IDENTIFIER)) {
                 eatIdentifier(jackTokenizer.identifier(), Category.CLASS, true, false);
             } else {
-//            TODO: need to save identifier info of a class? if the identifier is a class name...
-                updateXMLandAdvanceToken(jackTokenizer.tokenType(), keyword, true);
+                advanceTokenIfPossible();
             }
         } else {
             throw new CompilationException("need to provide a type, provided " +
@@ -512,39 +509,30 @@ public class JackCompilationEngine {
         }
     }
 
-    private void eatStaticOrField() throws IOException {
+    private void eatStaticOrField() {
         if (jackTokenizer.tokenType().equals(KEYWORD) && (isKeyword(Keyword.STATIC) ||
                 isKeyword(Keyword.FIELD))) {
-            updateXMLandAdvanceToken(jackTokenizer.tokenType(), jackTokenizer.keyWord().toString(), true);
+            advanceTokenIfPossible();
         } else {
             throw new CompilationException("need to provide static or field, provided " +
                     jackTokenizer.tokenValue() + " " + jackTokenizer.tokenType());
         }
     }
 
-    private void eatSubroutineDeclaration() throws IOException {
+    private void eatSubroutineDeclaration() {
         if (isKeyword(Keyword.CONSTRUCTOR) | isKeyword(Keyword.FUNCTION)
                 | isKeyword(Keyword.METHOD)) {
-            updateXMLandAdvanceToken(jackTokenizer.tokenType(), jackTokenizer.keyWord().toString(), true);
+            advanceTokenIfPossible();
         } else {
             throw new CompilationException("was expecting a subroutine declaration");
         }
     }
 
-    private void eatReturnType() throws IOException {
+    private void eatReturnType() {
         if (isKeyword(Keyword.VOID)) {
-            updateXMLandAdvanceToken(jackTokenizer.tokenType(), jackTokenizer.keyWord().toString(), true);
+            advanceTokenIfPossible();
         } else {
             eatType();
-        }
-    }
-
-    private void updateXMLandAdvanceToken(TokenType tokenType, String s, boolean advanceToken) throws IOException {
-        if (updateXML) {
-            XMLWriter.writeXMLKeyword(tokenType.getName(), s, bufferedWriter);
-        }
-        if (advanceToken) {
-            advanceTokenIfPossible();
         }
     }
 
