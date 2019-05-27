@@ -15,6 +15,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
 
+import static com.company.tokens.TokenType.IDENTIFIER;
 import static com.company.tokens.TokenType.KEYWORD;
 
 public class JackCompilationEngine {
@@ -591,7 +592,7 @@ public class JackCompilationEngine {
     }
 
     private boolean existsParameterList() {
-        return isTypeKeyword();
+        return isTypeKeyword() || jackTokenizer.tokenType().equals(IDENTIFIER);
     }
 
     private boolean isStatement() {
