@@ -224,18 +224,29 @@ public class JackCompilationEngine {
 //        let statement uses already defined variable
         eatIdentifier(identifier, symbolTable.kindOf(identifier), true, false);
 
+        PushPopSegment segment = getPushPopSegment(identifier);
+        int index = symbolTable.indexOf(identifier);
+        boolean isArray = false;
         if (jackTokenizer.symbol().equals('[')) {
+            vmWriter.writePush(segment, index);
+            isArray = true;
             eatSymbol('[');
             compileExpression();
             eatSymbol(']');
+            vmWriter.writeArithmetic(ArithmeticCommand.ADD);
         }
         eatSymbol('=');
         compileExpression();
         eatSymbol(';');
 
-        PushPopSegment segment = getPushPopSegment(identifier);
-        int index = symbolTable.indexOf(identifier);
-        vmWriter.writePop(segment, index);
+        if (isArray) {
+            vmWriter.writePop(PushPopSegment.TEMP, 0);
+            vmWriter.writePop(PushPopSegment.POINTER, 1);
+            vmWriter.writePush(PushPopSegment.TEMP, 0);
+            vmWriter.writePop(PushPopSegment.THAT, 0);
+        } else {
+            vmWriter.writePop(segment, index);
+        }
     }
 
     private void compileWhile() throws IOException {
@@ -327,12 +338,13 @@ public class JackCompilationEngine {
             vmWriter.writePush(PushPopSegment.CONST, jackTokenizer.intVal());
             advanceTokenIfPossible();
         } else if (jackTokenizer.tokenType().equals(TokenType.STRING_CONSTANT)) {
+//            TODO: should String.new be called in all cases??
+            int length = jackTokenizer.stringVal().length();
+            vmWriter.writePush(PushPopSegment.CONST, length);
+            vmWriter.writeCall("String.new", 1);
             char[] stringConst = jackTokenizer.stringVal().toCharArray();
-            if (stringConst.length > 0) {
-                vmWriter.writePush(PushPopSegment.CONST, stringConst[0]);
-            }
-            for (int i = 1; i < stringConst.length; i++) {
-                vmWriter.writePush(PushPopSegment.CONST, stringConst[i]);
+            for (char aStringConst : stringConst) {
+                vmWriter.writePush(PushPopSegment.CONST, aStringConst);
                 vmWriter.writeCall("String.appendChar", 2);
             }
             advanceTokenIfPossible();
@@ -394,10 +406,16 @@ public class JackCompilationEngine {
     }
 
     private void eatArray(String tokenValue) throws IOException {
+        int index = symbolTable.indexOf(tokenValue);
+        PushPopSegment segment = getPushPopSegment(tokenValue);
+        vmWriter.writePush(segment, index);
         eatIdentifier(tokenValue, symbolTable.kindOf(tokenValue), false, false);
         eatSymbol('[');
         compileExpression();
         eatSymbol(']');
+        vmWriter.writeArithmetic(ArithmeticCommand.ADD);
+        vmWriter.writePop(PushPopSegment.POINTER, 1);
+        vmWriter.writePush(PushPopSegment.THAT, 0);
 
     }
 
