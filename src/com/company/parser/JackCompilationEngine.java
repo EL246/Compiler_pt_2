@@ -125,6 +125,9 @@ public class JackCompilationEngine {
         final String subroutineName = jackTokenizer.identifier();
         eatIdentifier(jackTokenizer.identifier(), Category.SUBROUTINE, true, true);
         eatSymbol('(');
+        if (subroutineType.equals(Keyword.METHOD)) {
+            symbolTable.define("this", className, Category.ARG);
+        }
         compileParameterList();
         eatSymbol(')');
 
@@ -144,7 +147,6 @@ public class JackCompilationEngine {
         } else if (subroutineType.equals(Keyword.METHOD)) {
             vmWriter.writePush(PushPopSegment.ARG, 0);
             vmWriter.writePop(PushPopSegment.POINTER, 0);
-            symbolTable.define("this", className, Category.ARG);
         }
 
         if (isStatement()) {
